@@ -31,19 +31,12 @@
     }
   ],
   "memory": "%MEMORY%",
-  "taskRoleArn": null,
-  "compatibilities": [
-    "EC2",
-    "FARGATE"
-  ],
   "family": "%TASKDEFINITIONNAME%",
   "requiresCompatibilities": [
     "FARGATE"
   ],
   "networkMode": "awsvpc",
   "cpu": "%CPU%",
-  "revision": 5,
-  "status": "ACTIVE",
   "volumes": [
     {
       "efsVolumeConfiguration": {
