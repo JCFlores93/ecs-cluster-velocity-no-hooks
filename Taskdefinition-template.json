@@ -1,0 +1,62 @@
+{
+  "executionRoleArn": "%ROLE%",
+  "containerDefinitions": [
+    {
+      "portMappings": [
+        {
+          "hostPort": 80,
+          "protocol": "tcp",
+          "containerPort": %CONTAINERPORT_A%
+        },
+        {
+          "hostPort": 8080,
+          "protocol": "tcp",
+          "containerPort": %CONTAINERPORT_B%
+        }
+      ],
+      "mountPoints": [
+        {
+          "readOnly": false,
+          "containerPath": "/usr/share/nginx/html",
+          "sourceVolume": "nginx-web-vol"
+        },
+        {
+          "containerPath": "/etc/nginx",
+          "sourceVolume": "nginx-conf-vol"
+        }
+      ],
+      "image": "%REPOIMAGE%",
+      "essential": true,
+      "name": "%CONTAINERNAME%"
+    }
+  ],
+  "memory": "%MEMORY%",
+  "taskRoleArn": null,
+  "compatibilities": [
+    "EC2",
+    "FARGATE"
+  ],
+  "family": "%TASKDEFINITIONNAME%",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "networkMode": "awsvpc",
+  "cpu": "%CPU%",
+  "revision": 5,
+  "status": "ACTIVE",
+  "volumes": [
+    {
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-5b96bb5c",
+        "rootDirectory": "/"
+      },
+      "name": "nginx-conf-vol",
+    },
+    {
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-5b96bb5c",
+        "rootDirectory": "/"
+      },
+      "name": "nginx-web-vol",
+    }
+  ]
