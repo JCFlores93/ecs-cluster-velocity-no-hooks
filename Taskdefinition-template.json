@@ -50,13 +50,14 @@
         "fileSystemId": "fs-5b96bb5c",
         "rootDirectory": "/"
       },
-      "name": "nginx-conf-vol",
+      "name": "nginx-conf-vol"
     },
     {
       "efsVolumeConfiguration": {
         "fileSystemId": "fs-5b96bb5c",
         "rootDirectory": "/"
       },
-      "name": "nginx-web-vol",
+      "name": "nginx-web-vol"
     }
   ]
+}
