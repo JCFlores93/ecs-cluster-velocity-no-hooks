@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SG cloudformation. SG permission access to cluster ECS.
+
+Parameters:
+  StackName:
+    Type: String
+    Description: A friendly name that will be used for SGs resources.
+    Default: velocity-ecs
+  Vpc:
+    Type: String
+    Description: A friendly name that will be used for roles.
+  AppListenPort:
+    Description: The port the app is listening on. Normally, specified in Dockerfile for a container.
+    Type: Number
+    Default: 80
+  SecondaryAppListenPort:
+    Description: The port the app is listening on. Normally, specified in Dockerfile for a container.
+    Type: Number
+    Default: 9000
+
+Resources:
+  # From the load balancer to the ECS containers.
+  ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the ECS hosts that run containers
+      VpcId: !Ref Vpc
+
+  # Security Group allow traffic to the load balancer from the internet
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SAccess to the public facing load balancer
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          CidrIp: 0.0.0.0/0
+
+  EFSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "security group for the EFS"
+      VpcId: !Ref Vpc
+#      SecurityGroupIngress:
+#        - Description: "servers to connect to efs"
+#          FromPort: 2049
+#          IpProtocol: "tcp"
+#          ToPort: 2049
+#          CidrIp: !Ref VpcIPRange
+
+  ALBSecurityGroupToServiceSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from the public ALB to containers
+      GroupId: !Ref ServiceSecurityGroup
+      SourceSecurityGroupId: !Ref ALBSecurityGroup
+      IpProtocol: tcp
+      FromPort: !Ref AppListenPort
+      ToPort: !Ref AppListenPort
+
+  ALBSecurityGroupToServiceSecurityGroupIngress2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from the public ALB on secondary port
+      GroupId: !Ref ServiceSecurityGroup
+      SourceSecurityGroupId: !Ref ALBSecurityGroup
+      IpProtocol: tcp
+      FromPort: !Ref SecondaryAppListenPort
+      ToPort: !Ref SecondaryAppListenPort
+
+  EcsSecurityGroupIngressFromSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from other containers in the same security group
+      GroupId: !Ref ServiceSecurityGroup
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !Ref ServiceSecurityGroup
+
+  ServiceSecurityGroupToEFSSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Load balancer to target
+      GroupId: !Ref EFSSecurityGroup
+      SourceSecurityGroupId: !Ref ServiceSecurityGroup
+      IpProtocol: tcp
+      FromPort: 2049
+      ToPort: 2049
+
+Outputs:
+  ServiceSecurityGroup:
+    Description: A security group used to allow containers to receive traffic
+    Value: !Ref ServiceSecurityGroup
+    Export:
+      Name: !Sub ${StackName}:ContainerSecurityGroup
+  ALBSecurityGroup:
+    Description: A security group used to allow connection alb to container
+    Value: !Ref ALBSecurityGroup
+    Export:
+      Name: !Sub ${StackName}:ALBSecurityGroup
+  EFSSecurityGroup:
+    Description: A security group used to allow efs to receive traffic
+    Value: !Ref EFSSecurityGroup
+    Export:
+      Name: !Sub ${StackName}:EFSSecurityGroup

@@ -1,0 +1,34 @@
+{
+    "cluster": "velocity-test-ecs-ECSCluster-QLrpKKNGSjZG",
+    "serviceName": "ecs-linear-blog",
+    "taskDefinition": "arn:aws:ecs:us-west-2:033686261524:task-definition/velocity-test-ecs-svc:1",
+    "loadBalancers": [
+        {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-west-2:033686261524:targetgroup/veloc-Targe-1N0004D1MJPLO/4f25f573924a6cbd",
+            "containerName": "velocity-test-ecs-svc",
+            "containerPort": 80
+        }
+    ],
+    "launchType": "FARGATE",
+    "schedulingStrategy": "REPLICA",
+    "deploymentController": {
+        "type": "CODE_DEPLOY"
+    },
+    "platformVersion": "LATEST",
+    "networkConfiguration": {
+       "awsvpcConfiguration": {
+          "assignPublicIp": "ENABLED",
+          "securityGroups": [ "sg-0f2f0718b824af476" ],
+          "subnets": [ "subnet-06287d33fa038b30c", "subnet-09d04a2bd8e24ee46" ]
+       }
+    },
+    "desiredCount": 2
+}
+
+"serviceArn": "arn:aws:ecs:us-west-2:033686261524:service/velocity-test-ecs-ECSCluster-QLrpKKNGSjZG/ecs-linear-blog",
+"serviceName": "ecs-linear-blog",
+
+{
+    "applicationId": "db8088ba-c9eb-490b-b543-dc4a4837c825"
+}
+

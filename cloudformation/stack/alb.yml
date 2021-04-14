@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SG cloudformation. SG permission access to cluster ECS.
+
+Parameters:
+  StackName:
+    Type: String
+    Description: A friendly name that will be used for SGs resources.
+    Default: velocity-ecs
+  EnvironmentName:
+    Type: String
+    Description: "A friendly environment name that will be used for namespacing all cluster resources. Example: staging, qa, or production"
+  Vpc:
+    Type: 'AWS::EC2::VPC::Id'
+  PublicSubnetOne:
+    Type: 'AWS::EC2::Subnet::Id'
+  PublicSubnetTwo:
+    Type: 'AWS::EC2::Subnet::Id'
+  PublicSubnetThree:
+    Type: 'AWS::EC2::Subnet::Id'
+  ALBSecurityGroup:
+    Type: String
+
+Resources:
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+      - Key: idle_timeout.timeout_seconds
+        Value: '30'
+      Subnets:
+        # The load balancer is placed into the public subnets, so that traffic
+        # from the internet can reach the load balancer directly via the internet gateway
+        - !Ref PublicSubnetOne
+        - !Ref PublicSubnetTwo
+        - !Ref PublicSubnetThree
+      SecurityGroups: [!Ref 'ALBSecurityGroup']
+      Tags:
+       - Key: Name
+         Value: !Sub ${AWS::StackName}-ALB
+
+  TargetGroupOne:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: 
+      - ALB 
+    Properties:
+      TargetType: ip
+      HealthCheckIntervalSeconds: 6
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      TargetGroupAttributes:
+        - Key: "deregistration_delay.timeout_seconds"
+          Value: '5'
+      VpcId: !Ref 'Vpc'
+
+  TargetGroupTwo:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: 
+      - ALB 
+    Properties:
+      TargetType: ip
+      HealthCheckIntervalSeconds: 6
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref 'Vpc'
+
+  ALBListenerOne:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - ALB
+      - TargetGroupOne
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroupOne
+          Type: 'forward'
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+
+  # Listener with default action to forward to drop.
+  ALBListenerTwo:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - ALB
+      - TargetGroupTwo
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroupTwo
+          Type: 'forward'
+      LoadBalancerArn: !Ref ALB
+      Port: 8080
+      Protocol: HTTP
+
+Outputs:
+  ALB:
+    Description: A security group used to allow containers to receive traffic
+    Value: !Ref ALB
+    Export:
+      Name: !Sub ${StackName}:ALB
+  TargetGroupOne:
+    Description: A security group used to allow containers to receive traffic
+    Value: !Ref TargetGroupOne
+    Export:
+      Name: !Sub ${StackName}:TargetGroupOne
+  TargetGroupTwo:
+    Description: A security group used to allow containers to receive traffic
+    Value: !Ref TargetGroupTwo
+    Export:
+      Name: !Sub ${StackName}:TargetGroupTwo
+  ALBListenerOne:
+    Description: A security group used to allow containers to receive traffic
+    Value: !Ref ALBListenerOne
+    Export:
+      Name: !Sub ${StackName}:ALBListenerOne
+  ALBListenerTwo:
+    Description: A security group used to allow containers to receive traffic
+    Value: !Ref ALBListenerTwo
+    Export:
+      Name: !Sub ${StackName}:ALBListenerTwo

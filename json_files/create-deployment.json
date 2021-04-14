@@ -1,0 +1,12 @@
+{
+    "applicationName": "velocity-ecs-app",
+    "deploymentGroupName": "velocity-ecs",
+    "revision": {
+        "revisionType": "S3",
+        "s3Location": {
+            "bucket": "testyamlvelocity",
+            "key": "appspec.yaml",
+            "bundleType": "YAML"
+        }
+    }
+}

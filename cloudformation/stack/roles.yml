@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Roles cloudformation. Roles permission to access to cluster ECS.
+
+Parameters:
+  StackName:
+    Type: String
+    Description: "A friendly name that will be used for roles."
+    Default: velocity-ecs
+  # EnvironmentName:
+  #   Type: String
+  #   Description: "A friendly environment name that will be used for namespacing all cluster resources. Example: staging, qa, or production"
+  # EfsArn:
+  #   Type: String
+
+Resources:
+  # A role used to allow AWS Autoscaling to inspect stats and adjust scalable targets
+  # on your AWS account
+  AutoscalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [application-autoscaling.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+      - PolicyName: !Sub "${StackName}-auto-scaling-policy"
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - ecs:DescribeServices
+              - ecs:UpdateService
+              - cloudwatch:PutMetricAlarm
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:DeleteAlarms
+            Resource: '*'
+
+  # Role for the EC2 hosts. This allows the ECS agent on the EC2 hosts
+  # to communicate with the ECS control plane, as well as download the docker
+  # images from ECR to run on your host.
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${StackName}EC2Role"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ ec2.amazonaws.com ]
+            Action: [ 'sts:AssumeRole' ]
+      Path: /
+      Policies:
+        - PolicyName: !Sub ecs-service-${StackName}
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ecs:CreateCluster'
+                  - 'ecs:DeregisterContainerInstance'
+                  - 'ecs:DiscoverPollEndpoint'
+                  - 'ecs:Poll'
+                  - 'ecs:RegisterContainerInstance'
+                  - 'ecs:StartTelemetrySession'
+                  - 'ecs:Submit*'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'ecr:GetAuthorizationToken'
+                  - 'ecr:BatchGetImage'
+                  - 'ecr:GetDownloadUrlForLayer'
+                Resource: '*'
+
+  # This is an IAM role which authorizes ECS to manage resources on your
+  # account on your behalf, such as updating your load balancer with the
+  # details of where your containers are, so that traffic can reach your
+  # containers.
+  ECSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ecs.amazonaws.com]
+            Action: [ 'sts:AssumeRole' ]
+      Path: /
+      Policies:
+        - PolicyName: !Sub "ecs-service-${StackName}"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  # Rules which allow ECS to attach network interfaces to instances
+                  # on your behalf in order for awsvpc networking mode to work right
+                  - 'ec2:AttachNetworkInterface'
+                  - 'ec2:CreateNetworkInterface'
+                  - 'ec2:CreateNetworkInterfacePermission'
+                  - 'ec2:DeleteNetworkInterface'
+                  - 'ec2:DeleteNetworkInterfacePermission'
+                  - 'ec2:Describe*'
+                  - 'ec2:DetachNetworkInterface'
+
+                  # Rules which allow ECS to update load balancers on your behalf
+                  # with the information sabout how to send traffic to your containers
+                  - 'elasticloadbalancing:DeregisterInstancesFromLoadBalancer'
+                  - 'elasticloadbalancing:DeregisterTargets'
+                  - 'elasticloadbalancing:Describe*'
+                  - 'elasticloadbalancing:RegisterInstancesWithLoadBalancer'
+                  - 'elasticloadbalancing:RegisterTargets'
+                  - 'codedeploy:Get*'
+                  - 'codedeploy:CreateCloudFormationDeployment'
+                Resource: '*'
+
+  # This is a role which is used by the ECS tasks themselves.
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs-tasks.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+      Path: /
+      Policies:
+        - PolicyName: !Sub "AmazonECSTaskExecutionRolePolicy-${StackName}"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Effect: Allow
+              Action:
+                # Allow the ECS Tasks to download images from ECR
+                - 'ecr:GetAuthorizationToken'
+                - 'ecr:BatchCheckLayerAvailability'
+                - 'ecr:GetDownloadUrlForLayer'
+                - 'ecr:BatchGetImage'
+
+                # Allow the ECS tasks to upload logs to CloudWatch
+                - 'logs:CreateLogStream'
+                -  'logs:PutLogEvents'
+
+                - 'ecr:GetAuthorizationToken'
+                - 'ecr:BatchCheckLayerAvailability'
+                - 'ecr:GetDownloadUrlForLayer'
+                - 'ecr:GetRepositoryPolicy'
+                - 'ecr:DescribeRepositories'
+                - 'ecr:ListImages'
+                - 'ecr:DescribeImages'
+                - 'ecr:BatchGetImage'
+                - 'ecr:GetLifecyclePolicy'
+                - 'ecr:GetLifecyclePolicyPreview'
+                - 'ecr:ListTagsForResource'
+                - 'ecr:DescribeImageScanFindings'
+              Resource: '*'
+        # - PolicyName: !Sub "EFSManagedPolicy"
+        #   PolicyDocument:
+        #     Statement:
+        #     - Effect: Allow
+        #       Action:
+        #         # Allow the ECS Tasks to download images from ECR
+        #         - "elasticfilesystem:ClientMount"
+        #         - 'elasticfilesystem:ClientWrite'
+        #       Resource: !Ref EfsArn
+        #       Condition:
+        #         StringEquals:
+        #           elasticfilesystem:AccessPointArn: !Ref EfsArn
+
+  EcsRoleForCodeDeploy:
+    Type: AWS::IAM::Role
+    Properties:
+      Policies:
+        - PolicyName: passRoleForCodeDeploy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt ECSTaskExecutionRole.Arn
+      AssumeRolePolicyDocument:
+        Version: 2008-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ codedeploy.amazonaws.com ]
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS'
+
+Outputs:
+  AutoscalingRole:
+    Description: The ARN of the role used for autoscaling
+    Value: !GetAtt 'AutoscalingRole.Arn'
+    Export:
+      Name: !Sub ${StackName}:AutoscalingRole
+  ECSRole:
+    Description: The ARN of the ECS role
+    Value: !GetAtt 'ECSRole.Arn'
+    Export:
+      Name: !Sub ${StackName}:ECSRole
+  ECSTaskExecutionRole:
+    Description: The ARN of the ECS role
+    Value: !GetAtt 'ECSTaskExecutionRole.Arn'
+    Export:
+      Name: !Sub ${StackName}:ECSTaskExecutionRole
+  ECSTaskExecutionRoleName:
+    Description: The Name of the ECS role
+    Value: !Ref 'ECSTaskExecutionRole'
+    Export:
+      Name: !Sub ${StackName}:ECSTaskExecutionRoleName
+  EcsRoleForCodeDeploy:
+    Description: The ARN of the ECS role for CodeDeploy
+    Value: !GetAtt 'EcsRoleForCodeDeploy.Arn'
+    Export:
+      Name: !Sub ${StackName}:EcsRoleForCodeDeploy

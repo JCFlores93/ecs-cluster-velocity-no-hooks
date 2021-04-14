@@ -1,0 +1,45 @@
+{
+	"applicationName": "velocity-ecs-app",
+	"deploymentGroupName": "velocity-ecs",
+	"deploymentConfigName": "CodeDeployDefault.ECSCanary10Percent15Minutes",
+	"serviceRoleArn": "arn:aws:iam::033686261524:role/velocity-ecs-Roles-11XF9TGXXI-EcsRoleForCodeDeploy-1VNVSGMVTS8YB",
+
+	"deploymentStyle": {
+		"deploymentType": "BLUE_GREEN",
+		"deploymentOption": "WITH_TRAFFIC_CONTROL"
+	},
+	"blueGreenDeploymentConfiguration": {
+		"terminateBlueInstancesOnDeploymentSuccess": {
+			"action": "TERMINATE",
+			"terminationWaitTimeInMinutes": 5
+		},
+		"deploymentReadyOption": {
+			"actionOnTimeout": "CONTINUE_DEPLOYMENT"
+		}
+	},
+	"loadBalancerInfo": {
+		"targetGroupPairInfoList": [{
+			"targetGroups": [{
+					"name": "veloc-Targe-HO08ZOO058RQ"
+				},
+				{
+					"name": "veloc-Targe-ZYVGE7KAY9VK"
+				}
+			],
+			"prodTrafficRoute": {
+				"listenerArns": [
+					"arn:aws:elasticloadbalancing:us-west-2:033686261524:listener/app/velocit-ALB-BSPFIPYF6UUW/ce68e21a04db88c5/3dc937c31377adb7"
+				]
+			},
+			"testTrafficRoute": {
+					"listenerArns": [
+						"arn:aws:elasticloadbalancing:us-west-2:033686261524:listener/app/velocit-ALB-BSPFIPYF6UUW/ce68e21a04db88c5/f8b2ebef7038ee7d"
+					]
+			}
+		}]
+	},
+	"ecsServices": [{
+		"serviceName": "velocity-ecs-svc",
+		"clusterName": "velocity-ecs-ECSCluster-BQCfQFM6CIlC"
+	}]
+}

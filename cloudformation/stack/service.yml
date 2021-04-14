@@ -1,0 +1,280 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SG cloudformation. SG permission access to cluster ECS.
+
+Parameters:
+  StackName:
+    Type: String
+    Description: A friendly name that will be used for SGs resources.
+    Default: velocity-ecs
+  PrivateSubnetOne:
+    Type: 'AWS::EC2::Subnet::Id'
+  PrivateSubnetTwo:
+    Type: 'AWS::EC2::Subnet::Id'
+  PrivateSubnetThree:
+    Type: 'AWS::EC2::Subnet::Id'   
+  ECSTaskExecutionRoleArn:
+    Type: String    
+  Role:
+    Type: String
+    Default: ""
+    Description: (Optional) An IAM role to give the service's containers if the code within needs to
+                 access other AWS resources like S3 buckets, DynamoDB tables, etc
+  DesiredCount:
+    Type: String
+    Default: '2'
+  ServiceSecurityGroup:
+    Type: String
+  ClusterName:
+    Type: String
+  TargetGroupArn:
+    Type: String
+
+Conditions:
+  HasCustomRole: !Not [ !Equals [!Ref 'Role', ''] ]
+
+Resources:
+  Service:
+    Type: AWS::ECS::Service
+    # DependsOn: LoadBalancerRule
+    Properties:
+      Cluster: !Ref ClusterName
+      ServiceName: !Sub ${StackName}-svc
+      TaskDefinition: !Ref TaskDefinition
+      LoadBalancers:
+        - ContainerName: !Sub ${StackName}-svc
+          ContainerPort: 80
+          TargetGroupArn: !Ref TargetGroupArn
+      LaunchType: FARGATE
+      SchedulingStrategy: REPLICA
+      DeploymentController:
+        Type: CODE_DEPLOY
+      PlatformVersion: 1.4.0
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 75
+      DesiredCount: !Ref 'DesiredCount'
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          Subnets:
+            - !Ref PrivateSubnetOne
+            - !Ref PrivateSubnetTwo
+            - !Ref PrivateSubnetThree
+      
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub ${StackName}-loggroup-svc
+    
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${StackName}-svc
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref ECSTaskExecutionRoleArn
+      TaskRoleArn:
+        Fn::If:
+          - 'HasCustomRole'
+          - !Ref 'Role'
+          - !Ref "AWS::NoValue"
+      ContainerDefinitions:
+        - Name: !Sub ${StackName}-mysql
+          Image: mysql:5.7
+          PortMappings:
+            - HostPort: 3306
+              Protocol: tcp
+              ContainerPort: 3306
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Sub ${StackName}-mysql
+          Environment:
+            - Name: MYSQL_HOST
+              Value: localhost
+            - Name: MYSQL_USER
+              Value: homestead
+            - Name: MYSQL_ROOT_PASSWORD
+              Value: "123456"
+            - Name: MYSQL_DATABASE
+              Value: homestead
+            - Name: MYSQL_PASSWORD
+              Value: secret
+
+        - Name: !Sub ${StackName}-laravel-www
+          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+          PortMappings:
+            - HostPort: 80
+              Protocol: tcp
+              ContainerPort: 80
+            - HostPort: 8080
+              Protocol: tcp
+              ContainerPort: 8080
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Sub ${StackName}-app
+          DependsOn:
+            - Condition: SUCCESS
+              ContainerName: !Sub ${StackName}-mysql
+          Environment:
+            - Name: APP_ENV
+              Value: local
+            - Name: CONTAINER
+              Value: app
+            - Name: CACHE_DRIVER
+              Value: array
+            - Name: SESSION_DRIVER
+              Value: file
+            - Name: QUEUE_DRIVER
+              Value: database
+            - Name: APP_DEBUG
+              Value: "true"
+            - Name: DB_CONNECTION
+              Value: mysql
+            - Name: DB_HOST
+              Value: mysql
+            - Name: DB_PORT
+              Value: "3306"
+            - Name: DB_DATABASE
+              Value: homestead
+            - Name: DB_USERNAME
+              Value: homestead
+            - Name: DB_PASSWORD
+              Value: secret
+        - Name: !Sub ${StackName}-laravel-scheduler
+          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Sub ${StackName}-laravel-scheduler
+          DependsOn:
+            - Condition: SUCCESS
+              ContainerName: !Sub ${StackName}-app
+          Environment:
+            - Name: APP_ENV
+              Value: local
+            - Name: CONTAINER
+              Value: scheduler
+            - Name: CACHE_DRIVER
+              Value: array
+            - Name: SESSION_DRIVER
+              Value: file
+            - Name: QUEUE_DRIVER
+              Value: database
+            - Name: DB_CONNECTION
+              Value: mysql
+            - Name: DB_HOST
+              Value: mysql
+            - Name: DB_PORT
+              Value: "3306"
+            - Name: DB_DATABASE
+              Value: homestead
+            - Name: DB_USERNAME
+              Value: homestead
+            - Name: DB_PASSWORD
+              Value: secret
+        - Name: !Sub ${StackName}-laravel-queue
+          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Sub ${StackName}-laravel-queue
+          DependsOn:
+            - Condition: SUCCESS
+              ContainerName: !Sub ${StackName}-app
+          Environment:
+            - Name: APP_ENV
+              Value: local
+            - Name: CONTAINER
+              Value: scheduler
+            - Name: CACHE_DRIVER
+              Value: array
+            - Name: SESSION_DRIVER
+              Value: file
+            - Name: QUEUE_DRIVER
+              Value: database
+            - Name: DB_CONNECTION
+              Value: mysql
+            - Name: DB_HOST
+              Value: mysql
+            - Name: DB_PORT
+              Value: "3306"
+            - Name: DB_DATABASE
+              Value: homestead
+            - Name: DB_USERNAME
+              Value: homestead
+            - Name: DB_PASSWORD
+              Value: secret
+        - Name: !Sub ${StackName}-migration
+          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Sub ${StackName}-migration
+          Command:
+            - sh -c '/tmp/wait-for app_mysql:3306 -t 300 -- /tmp/migration'
+          DependsOn:
+            - Condition: SUCCESS
+              ContainerName: !Sub ${StackName}-mysql
+            - Condition: SUCCESS
+              ContainerName: !Sub ${StackName}-laravel-www
+            - Condition: SUCCESS
+              ContainerName: !Sub ${StackName}-laravel-scheduler
+            - Condition: SUCCESS
+              ContainerName: !Sub ${StackName}-laravel-queue
+          Environment:
+            - Name: APP_ENV
+              Value: local
+            - Name: CONTAINER
+              Value: migration
+            - Name: CACHE_DRIVER
+              Value: array
+            - Name: SESSION_DRIVER
+              Value: file
+            - Name: QUEUE_DRIVER
+              Value: database
+            - Name: DB_CONNECTION
+              Value: mysql
+            - Name: DB_HOST
+              Value: mysql
+            - Name: DB_PORT
+              Value: "3306"
+            - Name: DB_DATABASE
+              Value: homestead
+            - Name: DB_USERNAME
+              Value: homestead
+            - Name: DB_PASSWORD
+              Value: secret
+        
+Outputs:
+  Service:
+    Description: A security group used to allow containers to receive traffic
+    Value: !Ref Service
+    Export:
+      Name: !Sub ${StackName}:Service
+  LogGroup:
+    Description: A security group used to allow connection alb to container
+    Value: !Ref LogGroup
+    Export:
+      Name: !Sub ${StackName}:LogGroup
+  TaskDefinition:
+    Description: A security group used to allow efs to receive traffic
+    Value: !Ref TaskDefinition
+    Export:
+      Name: !Sub ${StackName}:TaskDefinition
