@@ -24,11 +24,3 @@
     },
     "desiredCount": 2
 }
-
-"serviceArn": "arn:aws:ecs:us-west-2:033686261524:service/velocity-test-ecs-ECSCluster-QLrpKKNGSjZG/ecs-linear-blog",
-"serviceName": "ecs-linear-blog",
-
-{
-    "applicationId": "db8088ba-c9eb-490b-b543-dc4a4837c825"
-}
-
