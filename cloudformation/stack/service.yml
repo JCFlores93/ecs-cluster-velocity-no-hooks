@@ -109,7 +109,7 @@ Resources:
               Value: secret
 
         - Name: !Sub ${StackName}-laravel-www
-          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/velocity_app:latest
           PortMappings:
             - HostPort: 80
               Protocol: tcp
@@ -152,7 +152,7 @@ Resources:
             - Name: DB_PASSWORD
               Value: secret
         - Name: !Sub ${StackName}-laravel-scheduler
-          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/velocity_app:latest
           LogConfiguration:
             LogDriver: 'awslogs'
             Options:
@@ -186,7 +186,7 @@ Resources:
             - Name: DB_PASSWORD
               Value: secret
         - Name: !Sub ${StackName}-laravel-queue
-          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/velocity_app:latest
           LogConfiguration:
             LogDriver: 'awslogs'
             Options:
@@ -220,7 +220,7 @@ Resources:
             - Name: DB_PASSWORD
               Value: secret
         - Name: !Sub ${StackName}-migration
-          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+          Image: 033686261524.dkr.ecr.us-west-2.amazonaws.com/velocity_app:latest
           LogConfiguration:
             LogDriver: 'awslogs'
             Options:
